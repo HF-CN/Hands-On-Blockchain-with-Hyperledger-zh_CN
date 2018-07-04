@@ -69,7 +69,7 @@ $ peer chaincode install -p chaincodedev/chaincode/trade_workflow_v1 -n tw –v 
 
 2. 现在，实例以下链码：
 ```
-$ peer chaincode instantiate -n	tw -v 0	-c '{"Args": ["init","LumberInc","LumberBank","100000","WoodenToys","ToyBank","200000","UniversalFreight"]" -C tradechannel
+$ peer chaincode instantiate -n	tw -v 0	-c '{"Args": ["init","LumberInc","LumberBank","100000","WoodenToys","ToyBank","200000","UniversalFreight"]}' -C tradechannel
 ```
 
 CLI连接的终端现在包含与链代码交互的日志消息列表。链码终端显示来自链码方法调用的消息，网络终端显示来自peer和order之间通信的消息。
