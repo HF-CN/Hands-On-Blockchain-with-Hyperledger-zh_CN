@@ -26,8 +26,8 @@ Chaincode在其自己的容器中作为独立进程运行，与Fabric网络的�
 下面是我们如何用开发模式开启Fabric网络：
 
 ```
-$	cd	$GOPATH/src/trade-finance-logistics/network 
-$	./trade.sh up	-d true
+$ cd $GOPATH/src/trade-finance-logistics/network 
+$ ./trade.sh up -d true
 ```
 
 提示：如果在网络启动时遇到任何错误，可能是由一些遗留下来的Docker容器引起的。
@@ -46,14 +46,14 @@ $	./trade.sh up	-d true
 
 1. 编译链码：在一个新的终端中，连接到链码容器并使用以下命令构建链码：
 ```
-$	docker exec –it chaincode bash	
-$	cd trade_workflow_v1	
-$	go build	
+$ docker exec –it chaincode bash	
+$ cd trade_workflow_v1	
+$ go build	
 ```
 
 2. 运行chaincode时执行以下命令：
 ```
-$	CORE_PEER_ADDRESS=peer:7052 CORE_CHAINCODE_ID_NAME=tw:0 ./trade_workflow_v1
+$ CORE_PEER_ADDRESS=peer:7052 CORE_CHAINCODE_ID_NAME=tw:0 ./trade_workflow_v1
 ```
 
 我们现在有一个连接到peer的正在运行的链码。这里的日志消息表明链代码已启动并正在运行。您还可以检查网络终端中的日志消息，该消息列出与peer上到该链码的所有连接。
@@ -63,13 +63,13 @@ $	CORE_PEER_ADDRESS=peer:7052 CORE_CHAINCODE_ID_NAME=tw:0 ./trade_workflow_v1
 
 1. 安装链码：在一个新的终端中，连接到CLI容器并按照以下名称tw安装链码：
 ```
-$	docker	exec	-it	cli	bash	
-$ peer chaincode install -p	chaincodedev/chaincode/trade_workflow_v1 -n tw –v 0
+$ docker exec -it cli bash	
+$ peer chaincode install -p chaincodedev/chaincode/trade_workflow_v1 -n tw –v 0
 ```
 
 2. 现在，实例以下链码：
 ```
-$	peer	chaincode	instantiate	-n	tw	-v	0	-c	'{"Args": ["init","LumberInc","LumberBank","100000","WoodenToys","ToyBank","200000","UniversalFreight"," -C tradechannel
+$ peer chaincode instantiate -n	tw -v 0	-c '{"Args": ["init","LumberInc","LumberBank","100000","WoodenToys","ToyBank","200000","UniversalFreight"]" -C tradechannel
 ```
 
 CLI连接的终端现在包含与链代码交互的日志消息列表。链码终端显示来自链码方法调用的消息，网络终端显示来自peer和order之间通信的消息。
@@ -79,15 +79,15 @@ CLI连接的终端现在包含与链代码交互的日志消息列表。链码�
 
 1. 使用以下命令将新的贸易协定放到账本中：
 ```
-$	peer	 chaincode	invoke	-n	tw	-c	'{"Args":["requestTrade",	"50000",	"Wood	for	Toys"]}'	-C	tradechannel
+$ peer chaincode invoke	-n tw -c '{"Args":["requestTrade", "50000", "Wood for Toys"]}' -C tradechannel
 ```
 
 2. 使用以下命令检索账本中的该贸易协定：
 ```
-$	peer	 chaincode	invoke	-n	tw	-c	'{"Args":["getTradeStatus",	"50000"]}'	-C	tradechannel
+$ peer chaincode invoke	-n tw -c '{"Args":["getTradeStatus", "50000"]}'	-C tradechannel
 ```
 
-我们现在在devmode上有一个运行网络，我们已经成功测试了我们的链码。在下一节中，我们将学习如何从头开始创建和测试链码。
+我们现在在dev mode上有一个运行网络，我们已经成功测试了我们的链码。在下一节中，我们将学习如何从头开始创建和测试链码。
 
 提示：dev mode
 
@@ -105,8 +105,8 @@ $	peer	 chaincode	invoke	-n	tw	-c	'{"Args":["getTradeStatus",	"50000"]}'	-C	trad
 
 ```
 type	Chaincode interface {					
-  Init(stub	ChaincodeStubInterface)	 pb.Response
-  Invoke(stub	ChaincodeStubInterface) pb.Response
+  Init(stub ChaincodeStubInterface) pb.Response
+  Invoke(stub ChaincodeStubInterface) pb.Response
 }
 ```
 
@@ -149,8 +149,8 @@ import	(
 
 2. 现在，我们需要定义链码类型。让我们添加TradeWorkflowChaincode类型来实现chaincode函数，如下面的片段所示：
 ```
-type	TradeWorkflowChaincode	struct	{
-  testMode	bool
+type TradeWorkflowChaincode struct {
+  testMode bool
 }
 ```
 
@@ -161,42 +161,43 @@ type	TradeWorkflowChaincode	struct	{
 4. 链码被安装到区块链网络后，将调用Init方法。每个背书节点只执行一次，部署自己的链式代码实例。该方法可用于初始化，引导和设置链码。下面的代码片段显示了Init方法的默认实现。请注意，第3行中的方法将一行写入标准输出以报告其调用。在第4行中，该方法返回调用函数shim的结果。运行成功是使用nil的参数值表示成功执行且结果为空，如下所示：
 
 ```
-//	TradeWorkflowChaincode	implementation 
-func	(t	*TradeWorkflowChaincode)	Init(stub	SHIM.ChaincodeStubInterface) pb.Response	{				
-  fmt.Println("Initializing	Trade	Workflow")				
-  return	shim.Success(nil) 
+// TradeWorkflowChaincode implementation 
+func (t *TradeWorkflowChaincode) Init(stub SHIM.ChaincodeStubInterface) pb.Response	{				
+  fmt.Println("Initializing Trade Workflow")				
+  return shim.Success(nil) 
 }
 ```
 
 链码方法的调用必须返回pb.Response对象的一个实例。下面的代码片段列出了SHIM包中的两个帮助函数来创建响应对象。接下来的函数将响应对象序列化为gRPC protobuf消息：
 
 ```
-//	Creates	a	Response	object	with	the	Success	status	and	with	argument	of	a	'payload'	to	return 
-//	if	there	is	no	value	to	return,	the	argument	'payload'	should	be	set	to	'nil' 
-func	shim.Success(payload	[]byte)
-//	creates	a	Response	object	with	the	Error	status	and	with	an	argument	of	a	message	of	the	error 
-func	shim.Error(msg	string)
+// Creates a Response object with the Success status and with argument of a 'payload' to return 
+// if there is no value to return, the argument	'payload' should be set	to 'nil' 
+func shim.Success(payload []byte)
+// creates a Response object with the Error status and with an argument	of a message of	the error 
+func shim.Error(msg string)
 ```
 
 5. 现在是时候继续来看调用的参数。在这里，该方法将使用stub.GetFunctionAndParameters函数检索调用的参数，并验证是否提供了所需的参数个数。Init方法期望不接收参数，因此将账本保持原样。当Init函数被调用时会发生这种情况，因为Chaincode在账本上升级到更新的版本。当安装了第一次chaincode，预计接收八个参数，其中包括参与者的详细信息，这些参数将被记录为初始状态。如果提供的参数个数不正确，该方法将返回一个错误。 验证参数的代码块如下所示：
 ```
-_,	args	:=	stub.GetFunctionAndParameters() 
-var	err	error
-//	Upgrade	Mode	1:	leave	ledger	state	as	it	was 
-if	len(args)	==	0	{	
-	return	shim.Success(nil) 
+_, args	:= stub.GetFunctionAndParameters() 
+var err	error
+// Upgrade Mode	1: leave ledger	state as it was 
+if len(args) ==	0 {
+	return shim.Success(nil) 
 }
-//	Upgrade	mode	2:	change	all	the	names	and	account	balances 
-if	len(args)	!=	8	{	
-err	= errors.New(fmt.Sprintf("Incorrect number of arguments.Expecting 8: {"	+				"Exporter,	"	+
-				"Exporter's	Bank,	"	+
-				"Exporter's	Account	Balance,	"	+
-				"Importer,	"	+
-				"Importer's	Bank,	"	+
-				"Importer's	Account	Balance,	"	+
-				"Carrier,	"	+
-				"Regulatory	Authority"	+													"}.	Found	%d",	len(args)))		
-return	shim.Error(err.Error()) 
+// Upgrade mode	2: change all the names	and account balances 
+if len(args) != 8 {
+	err = errors.New(fmt.Sprintf("Incorrect number of arguments.Expecting 8: {" + "Exporter, " +
+	"Exporter's Bank, " +
+	"Exporter's Account Balance, " +
+	"Importer, " +
+	"Importer's Bank, " +
+	"Importer's Account Balance, " +
+	"Carrier, " +
+	"Regulatory Authority"	+ "}. Found %d", len(args)))
+	
+	return	shim.Error(err.Error()) 
 }
 ```
 
@@ -206,25 +207,25 @@ return	shim.Error(err.Error())
 
 注意，在该账本中数据存储为byte数组; 我们想要在帐本上存储的任何数据都必须先转换为byte数组，如下面的代码片段所示：
 ```
-//	Type	checks 
-_,	err	=	strconv.Atoi(string(args[2]))
-if	err	!=	nil	{				
-  fmt.Printf("Exporter's account balance must be an integer. Found%s\n",	args[2])	
-  return	shim.Error(err.Error())
+// Type	checks 
+_, err = strconv.Atoi(string(args[2]))
+if err != nil {
+	fmt.Printf("Exporter's account balance must be an integer. Found%s\n", args[2])	
+	 return shim.Error(err.Error())
 } 
-_,	err	=	strconv.Atoi(string(args[5])) 
-if	err	!=	nil	{				
-  fmt.Printf("Importer's	account	balance	must	be	an	integer.	Found	%s\n",	args[5])				
-  return	shim.Error(err.Error()) 
+_, err = strconv.Atoi(string(args[5])) 
+if err != nil {				
+	fmt.Printf("Importer's account balance must be an integer. Found %s\n", args[5])				
+	return shim.Error(err.Error()) 
 }
-//	Map	participant	identities	to	their	roles	on	the	ledger 
-roleKeys	:=	[]string{	expKey,	ebKey,	expBalKey,	impKey,	ibKey,	impBalKey,	carKey,	raKey	} 
-for	i,	roleKey	:=	range	roleKeys	{				
-  err	=	stub.PutState(roleKey,	[]byte(args[i]))				
-  if	err	!=	nil	{								
-    fmt.Errorf("Error	recording	key	%s:	%s\n",	roleKey,	err.Error())
-    return	shim.Error(err.Error())				
-  } 
+// Map participant identities to their roles on	the ledger 
+roleKeys := []string{ expKey, ebKey, expBalKey, impKey, ibKey, impBalKey, carKey, raKey } 
+for i, roleKey := range	roleKeys {				
+	err =	stub.PutState(roleKey,	[]byte(args[i]))				
+	if err != nil {								
+		fmt.Errorf("Error recording key	%s: %s\n", roleKey, err.Error())
+    		return shim.Error(err.Error())				
+	} 
 }
 ```
 
