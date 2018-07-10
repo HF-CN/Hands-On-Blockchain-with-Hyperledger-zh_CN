@@ -237,7 +237,7 @@ for i, roleKey := range	roleKeys {
 当调用客户端创建事务时，会调用此方法。当查询帐本的状态时（即，检索到一个或多个资产但未修改帐本的状态），客户端在收到Invoke的响应后将丢弃上下文事务。修改帐本后，修改将记录到事务中。在收到要记录在分布账本上的交易的响应后，客户将把该交易提交给ordering排序服务。以下代码段中显示了一个空的Invoke方法：
 ```
 func (t	*TradeWorkflowChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response	{
-fmt.Println("TradeWorkflow	Invoke") 
+	fmt.Println("TradeWorkflow	Invoke") 
 }
 ```
 
@@ -246,18 +246,18 @@ fmt.Println("TradeWorkflow	Invoke")
 SHIM API提供了几个用于检索Invoke方法的调用参数的函数。这些都列在下面的代码中。开发人员可以选择参数的含义和顺序;但是，习惯上，Invoke方法的第一个参数是函数的名称，以下参数是该函数的参数。
 
 ```
-//	Returns	the	first argument as the function name	and	the	rest	of the arguments as	parameters in a	string array.
-//	The	client must pass only arguments	of the type	string. 
+// Returns the first argument as the function name and the rest of the arguments as parameters in a string array.
+// The client must pass only arguments of the type string. 
 func GetFunctionAndParameters() (string, []string)
 
-//	Returns	all	arguments as a single string array. 
-//	The	client must	pass only arguments	of the type	string.
+// Returns all arguments as a single string array. 
+// The client must pass only arguments of the type string.
 func GetStringArgs() []string
 
-//	Returns	the	arguments as an	array of byte arrays. 
+// Returns the arguments as an array of byte arrays. 
 func GetArgs() [][]byte
 
-//	Returns	the	arguments as a single byte array. 
+// Returns the arguments as a single byte array. 
 func GetArgsSlice() ([]byte, error)
 ```
 
@@ -312,7 +312,7 @@ Fabric支持基于属性的访问控制（ABAC）机制，链码可以使用该�
 现在让我们注册一个自定义属性名为importer的并且值为true的用户。请注意，属性的值可以是任何类型，并且不限于布尔值，如以下代码段所示：
 
 ```
-fabric-ca-client register --id.name	user1 --id.secret pwd1 --id.type user -id.affiliation ImporterOrgMSP --id.attrs 'importer=true:ecert'
+fabric-ca-client register --id.name user1 --id.secret pwd1 --id.type user -id.affiliation ImporterOrgMSP --id.attrs 'importer=true:ecert'
 ```
 
 在使用属性importer=true注册用户时，上一个代码段向我们显示了命令行。请注意，id.secret和其他参数的值取决于Fabric CA配置。
@@ -330,7 +330,7 @@ fabric-ca-client register --id.name	user1 --id.secret pwd1 --id.type user -id.af
 例如，以下命令将user1注册为属性hf.Affiliation=ImporterOrgMSP，默认情况下将复制到ecert：
 
 ```
-fabric-ca-client register --id.name	user1 --id.secret pwd1 --id.type user --
+fabric-ca-client register --id.name user1 --id.secret pwd1 --id.type user --
 id.affiliation ImporterOrgMSP --id.attrs 'importer=true:ecert,hf.Affiliation=ImporterOrgMSP:ecert'
 ```
 
