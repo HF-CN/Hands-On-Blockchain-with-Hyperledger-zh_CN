@@ -334,7 +334,158 @@ fabric-ca-client register --id.name user1 --id.secret pwd1 --id.type user --
 id.affiliation ImporterOrgMSP --id.attrs 'importer=true:ecert,hf.Affiliation=ImporterOrgMSP:ecert'
 ```
 
-(到该章19页)
+## 登记用户
+
+在这里，我们将登记用户，并创建ecert.enrollment.attrs定义哪些属性将从用户注册复制到ecert中。 后缀opt定义从注册复制的那些属性是可选的。如果未在用户登记中定义一个或多个非可选属性，则登记将失败。下面的命令将登记用户与属性
+importer:fabric-ca-client enroll -u http://user1:pwd1@localhost:7054 --
+enrollment.attrs "importer,email:opt"
+
+## 检索链码中的用户身份和属性
+
+在此步骤中，我们将在执行链码期间检索用户的身份。链码可用的ABAC功能由客户端标识链接（CID）库提供。提交给链代码的每个交易提案都带有调用者的ecert-提交交易的用户。链码可以通过导入CID库并使用参数ChaincodeStubInterface调用库函数来访问ecert，即在Init和Invoke方法中接收的参数stub。链代码可以使用证书来提取有关调用者的信息，包括：
+
+- 调用者的ID
+- 颁发调用者证书的会员服务提供商（MSP）的唯一ID
+- 证书的标准属性，例如域名，电子邮件等
+- 与客户端标识关联的ecert属性，存储在证书中
+
+CID库提供的功能列在以下代码段中：
+
+```
+//返回与调用标识关联的ID。
+
+//此ID在发布标识的MSP（Fabric CA）中是唯一的，但是，不保证它在网络的所有MSP中都是唯一的。
+
+func GetID() (string,error)
+
+//返回与提交事务的标识关联的MSP的唯一ID。
+
+// MSPID和身份ID的组合保证在整个网络中是唯一的。
+
+func GetMSPID() (string,error)
+
+//返回名为`attrName`的ecert属性的值。
+
+//如果ecert具有属性，则`found`返回true，`value`返回属性的值。
+
+//如果ecert没有属性，`found`返回false，`value`返回空字符串。
+
+func GetAttributeValue(attrName string)(value string,found bool,err error)
+
+//该函数验证ecert是否具有名为`attrName`的属性，并且属性值等于`attrValue`。
+
+//该函数返回零，如果有匹配，否则，它会返回错误。
+
+func AssertAttributeValue(attrName,attrValue string) error 
+
+//返回X509身份证明。
+
+//证书是来自库“crypto / x509”的证书类型的实例。
+
+func GetX509Certificate() (*x509.Certificate,error)
+
+
+```
+在下面的代码块中，我们定义了一个函数getTxCreatorInfo，它获取有关调用者的基本身份信息。首先，我们必须导入CID和x509库，如第3行和第4行所示。在第13行检索唯一的MSPID，在第19行获得X509证书。在第24行中，我们然后检索证书的CommonName，其中包含网络中Fabric CA的唯一字符串。这两个属性由函数返回，并在后续访问控制验证中使用，如以下代码段所示：
+
+```
+import ( 
+    "fmt" 
+    "github.com/hyperledger/fabric/core/chaincode/shim" "github.com/hyperledger/fabric/core/chaincode/lib/cid" "crypto/x509" 
+)
+
+func getTxCreatorInfo(stub shim.ChaincodeStubInterface) (string,string,error){ 
+    var	mspid string 
+    var err	error 
+    var	cert *x509.Certificate
+    
+    mspid,err = cid.GetMSPID(stub) 
+    if err != nil { 
+    fmt.Printf("Error getting MSP identity:%sn",err.Error()) return "","",err 
+    }
+    
+    cert,err = cid.GetX509Certificate(stub) if err != nil {
+    fmt.Printf("Error getting client certificate:%sn",err.Error()) return "","",err 
+    }
+    
+    return mspid,cert.Issuer.CommonName,nil	
+    
+}
+```
+
+我们现在需要在链码中定义和实现简单的访问控制策略。链码的每个功能只能由特定组织的成员调用;因此，每个链码功能将验证调用者是否是所需组织的成员。例如，函数requestTrade只能由Importer组织的成员调用。在下面的代码片段中，函数authenticateImporterOrg验证调用者是否是ImporterOrgMSP的成员。然后将从requestTrade函数调用此函数以强制执行访问控制。
+
+```
+func authenticateExportingEntityOrg(mspID string,certCN	string) bool {
+     return (mspID == "ExportingEntityOrgMSP")&&(certCN == "ca.exportingentityorg.trade.com") 
+    
+} 
+func authenticateExporterOrg(mspID string,certCN string) bool {
+    return (mspID == "ExporterOrgMSP") && (certCN ==         "ca.exporterorg.trade.com") 
+    
+} 
+func authenticateImporterOrg(mspID string,certCN string) bool {
+    return (mspID == "ImporterOrgMSP") && (certCN == "ca.importerorg.trade.com") 
+    
+} 
+func authenticateCarrierOrg(mspID string,certCN	string)	bool {
+    return (mspID == "CarrierOrgMSP") && (certCN == "ca.carrierorg.trade.com") 
+    
+} 
+func authenticateRegulatorOrg(mspID string, certCN string) bool {
+    return (mspID == "RegulatorOrgMSP") && (certCN == "ca.regulatororg.trade.com") 
+    
+}
+```
+
+在下面的代码片段中显示了访问控制验证的调用，该验证仅授予对ImporterOrgMSP成员的访问权限。使用从getTxCreatorInfo函数获取的参数调用该函数。
+
+```
+creatorOrg, creatorCertIssuer, err = getTxCreatorInfo(stub) 
+if !authenticateImporterOrg(creatorOrg, creatorCertIssuer) {
+    return shim.Error("Caller not a	member of Importer Org. Access denied.") 
+    
+}
+```
+现在，我们需要将我们的身份验证功能放在一个单独的文件accessControlUtils.go中，该文件与tradeWorkflow.go主文件位于同一目录中。在编译期间，该文件将自动导入主链代码文件中，因此我们可以参考其中定义的函数。
+
+## 实施chaincode功能
+
+在这一点上，我们现在有chaincode的基本组成部分。我们有Init方法，它启动链码和Invoke方法，它接收来自客户端和访问控制机制的请求。现在，我们需要定义链码的功能。
+
+根据我们的场景，下表总结了记录和检索分类帐数据以提供智能合约业务逻辑的功能列表。这些表还定义了组织成员的访问控制定义，这些定义是调用相应功能所必需的。
+
+下表说明了链码修改功能，即如何在帐本上记录事务：
+
+|函数名|调用权限|描述
+|-|:-:|-:|
+|requestTrade|Importer|请求贸易协定|
+|acceptTrade |Exporter |接受贸易协定|
+|requestLC| Importer| 请求信用证|
+|issueLC| Importer|发行信用证|
+|acceptLC| Exporter| 接受信用证|
+|requestEL| Exporter |请求出口许可证|
+|issueEL| Regulator| 发行出口许可证|
+|prepareShipment| Exporter|准备出货|
+|acceptShipmentAndIssueBL |Carrier|接受货物并签发提单|
+|requestPayment| Exporter| 请求付款|
+|makePayment| Importer| 进行支付|
+|updateShipmentLocation| Carrier |更新发货地点|
+
+下表说明了链码查询功能，即从帐本中检索数据所需的功能：
+
+|函数名|调用权限|描述
+|-|:-:|-:|
+|getTradeStatus |Exporter/ExportingEntity/Importer|获取贸易协议的当前状态|
+|getLCStatus| Exporter/ExportingEntity/Importer|获取信用证的当前状态|
+|getELStatus| ExportingEntity/Regulator|获取出口许可证的当前状态|
+|getShipmentLocation| Exporter/ExportingEntity/Importer/Carrier|获取货件的当前位置|
+|getBillOfLading| Exporter/ExportingEntity/Importer |获得提单|
+|getAccountBalance |Exporter/ExportingEntity/Importer|获取给定参与者的当前帐户余额|
+
+（到该章第28页）
+
+
  
 
 
